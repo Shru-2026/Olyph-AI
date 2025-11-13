@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Olyph AI Chatbot</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <div class="chat-container">
+    <div class="chat-window">
+      <div class="chat-header">
+        <span>Olyph AI</span>
+        <!-- 🏠 Home button (hidden by default) -->
+        <button id="homeBtn" class="home-btn" style="display:none;">🏠 Home</button>
+      </div>
+
+      <div class="chat-body" id="chat-body">
+        <div class="bot-message">👋 Greetings, this is OlyphAI. How can I help you?</div>
+      </div>
+
+      <div class="button-container">
+        <button class="chat-btn" id="askBtn">Ask me anything</button>
+        <button class="chat-btn" id="surveyBtn">Survey Agent</button>
+        <button class="chat-btn" id="reportBtn">Report Agent</button>
+      </div>
+
+      <div class="chat-input">
+        <input type="text" id="userInput" placeholder="How can I assist you?" />
+        <button id="sendBtn">➤</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="{{ url_for('static', filename='script.js') }}" defer></script>
+</body>
+</html>
