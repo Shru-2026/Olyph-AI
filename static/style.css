@@ -168,6 +168,13 @@ body {
   background-color: #005bb5;
 }
 
+.chat-link {
+  color: #0b5cff;
+  text-decoration: underline;
+  font-weight: 500;
+}
+
+
 /* ===== RESPONSIVENESS ===== */
 @media (max-width: 420px) {
   .chat-window {
