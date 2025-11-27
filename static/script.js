@@ -14,8 +14,8 @@ document.addEventListener("DOMContentLoaded", () => {
   let surveyFollowupTimer = null;
   let surveyFollowupAnswered = false;
   const SURVEY_FOLLOWUP_ID = "survey-fill-check";
-  const SURVEY_FOLLOWUP_DELAY_MS = 0 * 60 * 1000; // 2 minutes
-  const SURVEY_BUTTON_LIFETIME_MS = 0 * 60 * 1000; // 5 minutes lifetime for buttons
+  const SURVEY_FOLLOWUP_DELAY_MS = 2 * 60 * 1000; // 2 minutes
+  const SURVEY_BUTTON_LIFETIME_MS = 5 * 60 * 1000; // 5 minutes lifetime for buttons
 
   // Replace this with your real support number and contact page
   const SUPPORT_CONTACT_NUMBER = "+91-77700 04323";
