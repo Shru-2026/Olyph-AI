@@ -17,3 +17,6 @@ __pycache__/
 
 # Logs
 *.log
+
+# auth file with hashed passwords
+auth/authorized_users.json

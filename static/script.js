@@ -1,4 +1,4 @@
-// static/script.js
+// static/script.js (complete, with showHomeButton integration)
 document.addEventListener("DOMContentLoaded", () => {
   console.log("✅ Olyph AI script loaded successfully");
 
@@ -112,6 +112,136 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+  /* ------------------ UI helpers for home button ------------------ */
+
+  // show Home button and make main buttons visible
+  function showHomeButton() {
+    if (buttonContainer) buttonContainer.style.display = "flex";
+    if (homeButton) homeButton.style.display = "inline-block";
+    optionSelected = false;
+    selectedMode = null;
+  }
+
+  // resetToHome cancels an operation and hides the Home button (used for cancel flows)
+  function resetToHome() {
+    if (buttonContainer) buttonContainer.style.display = "flex";
+    if (homeButton) homeButton.style.display = "none";
+    optionSelected = false;
+    selectedMode = null;
+  }
+
+  /* ------------------ Credential Modal ------------------ */
+  function createCredentialModal(defaultFormat = "csv") {
+    if (document.getElementById("cred-modal")) return null;
+
+    const overlay = document.createElement("div");
+    overlay.id = "cred-modal-overlay";
+    overlay.style = `
+      position: fixed; inset: 0; background: rgba(0,0,0,0.4); display:flex;
+      align-items:center; justify-content:center; z-index:9999;
+    `;
+
+    const modal = document.createElement("div");
+    modal.id = "cred-modal";
+    modal.style = `
+      width: 320px; background: #fff; border-radius: 10px; padding: 16px; box-shadow: 0 6px 24px rgba(0,0,0,0.2);
+      font-family: inherit;
+    `;
+
+    modal.innerHTML = `
+      <h3 style="margin:0 0 8px 0; font-size:18px; color:#002b5c;">Report Download - Authenticate</h3>
+      <label style="display:block; margin-top:8px; font-weight:600;">Username</label>
+      <input id="cred-username" type="text" placeholder="Username" style="width:100%; padding:8px; margin-top:6px; border-radius:6px; border:1px solid #ddd;" />
+      <label style="display:block; margin-top:10px; font-weight:600;">Password</label>
+      <input id="cred-password" type="password" placeholder="Password" style="width:100%; padding:8px; margin-top:6px; border-radius:6px; border:1px solid #ddd;" />
+      <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:14px;">
+        <button id="cred-cancel-btn" style="padding:8px 12px; border-radius:6px; border:none; background:#ccc; cursor:pointer;">Cancel</button>
+        <button id="cred-submit-btn" style="padding:8px 12px; border-radius:6px; border:none; background:#0078ff; color:white; cursor:pointer;">Download</button>
+      </div>
+      <div id="cred-error" style="color:#b00020; margin-top:8px; display:none; font-size:13px;"></div>
+    `;
+
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+
+    const cancelBtn = document.getElementById("cred-cancel-btn");
+    const submitBtn = document.getElementById("cred-submit-btn");
+    const usernameInput = document.getElementById("cred-username");
+    const passwordInput = document.getElementById("cred-password");
+    const errorDiv = document.getElementById("cred-error");
+
+    function closeModal() {
+      overlay.remove();
+    }
+
+    cancelBtn.addEventListener("click", () => {
+      closeModal();
+      addMessage("Report cancelled.", "bot");
+      resetToHome();
+    });
+
+    passwordInput.addEventListener("keypress", (e) => {
+      if (e.key === "Enter") submitBtn.click();
+    });
+
+    submitBtn.addEventListener("click", async () => {
+      const username = usernameInput.value.trim();
+      const password = passwordInput.value;
+      if (!username || !password) {
+        errorDiv.style.display = "block";
+        errorDiv.innerText = "Please enter both username and password.";
+        return;
+      }
+      errorDiv.style.display = "none";
+
+      try {
+        const fmt = defaultFormat || "csv";
+        addMessage("Authenticating and requesting report...", "bot");
+
+        const res = await fetch("/api/report", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username, password, format: fmt })
+        });
+
+        if (!res.ok) {
+          const body = await res.json().catch(()=>({error: res.statusText}));
+          errorDiv.style.display = "block";
+          errorDiv.innerText = body.error || "Authentication failed or internal error.";
+          return;
+        }
+
+        const disposition = res.headers.get("content-disposition") || "";
+        let filename = fmt === "xlsx" ? "report.xlsx" : "report.csv";
+        const match = disposition.match(/filename\*=UTF-8''(.+)|filename="?(.*?)"?(;|$)/);
+        if (match) filename = decodeURIComponent(match[1] || match[2]);
+
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+
+        closeModal();
+        addMessage("Report downloaded: " + filename, "bot");
+
+        // show home button and main options again (keeps home visible)
+        showHomeButton();
+      } catch (err) {
+        errorDiv.style.display = "block";
+        errorDiv.innerText = "Request failed: " + (err.message || err);
+      }
+    });
+
+    usernameInput.focus();
+    return overlay;
+  }
+
+  /* ------------------ Main flow (unchanged) ------------------ */
   function handleSelection(option) {
     if (optionSelected) return;
     if (!sanityCheck(option)) return addMessage("⚠️ Invalid option selected!", "bot");
@@ -147,49 +277,14 @@ document.addEventListener("DOMContentLoaded", () => {
         ]);
       }, SURVEY_FOLLOWUP_DELAY_MS);
     } else if (option === "report") {
-      addMessage("Thank you for choosing Report Agent. Requesting report...", "bot");
-
-      setTimeout(async () => {
-        try {
-          // Default format: csv. Change to "xlsx" if you prefer Excel by default.
-          const fmt = "csv";
-          const res = await fetch("/api/report", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ format: fmt })
-          });
-
-          if (!res.ok) {
-            const err = await res.json().catch(()=>({error:res.statusText}));
-            addMessage("Error: " + (err.error || res.statusText), "bot");
-            resetToHome();
-            return;
-          }
-
-          const disposition = res.headers.get("content-disposition") || "";
-          let filename = fmt === "xlsx" ? "report.xlsx" : "report.csv";
-          const match = disposition.match(/filename\*=UTF-8''(.+)|filename="?(.*?)"?(;|$)/);
-          if (match) filename = decodeURIComponent(match[1] || match[2]);
-
-          const blob = await res.blob();
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = filename;
-          document.body.appendChild(a);
-          a.click();
-          a.remove();
-          URL.revokeObjectURL(url);
-          addMessage("Report downloaded: " + filename, "bot");
-        } catch (e) {
-          addMessage("Request failed: " + e.message, "bot");
-        } finally {
-          setTimeout(resetToHome, 800);
-        }
-      }, 600);
+      addMessage("Thank you for choosing Report Agent. Opening authentication...", "bot");
+      setTimeout(() => {
+        createCredentialModal("csv");
+      }, 300);
     }
   }
 
+  /* ------------------ Conversational Agent (unchanged) ------------------ */
   async function callConversationalAgent(userMessage) {
     addMessage(userMessage, "user");
 
@@ -208,6 +303,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+  /* ------------------ Sending messages (unchanged) ------------------ */
   async function handleSend() {
     const message = userInput.value.trim();
     if (!message) return;
@@ -234,6 +330,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+  /* ------------------ Event listeners (unchanged) ------------------ */
   if (sendBtn) sendBtn.addEventListener("click", handleSend);
 
   if (userInput) {
@@ -277,6 +374,18 @@ document.addEventListener("DOMContentLoaded", () => {
   function resetToHome() {
     if (buttonContainer) buttonContainer.style.display = "flex";
     if (homeButton) homeButton.style.display = "none";
+    optionSelected = false;
+    selectedMode = null;
+  }
+
+  function resetToHomeVisible() {
+    // deprecated helper kept for compatibility; prefer showHomeButton()
+    showHomeButton();
+  }
+
+  function showHomeButton() {
+    if (buttonContainer) buttonContainer.style.display = "flex";
+    if (homeButton) homeButton.style.display = "inline-block";
     optionSelected = false;
     selectedMode = null;
   }
