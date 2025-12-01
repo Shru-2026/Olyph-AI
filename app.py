@@ -1,42 +1,26 @@
 # app.py
-from flask import Flask, render_template, request, jsonify
+import os
+from flask import Flask, render_template, request, jsonify, send_file
 from flask_cors import CORS
-from agent import handle_user_query
+from dotenv import load_dotenv
+
+# Import agent functions
+from agent import handle_user_query, generate_report_bytes
+
+load_dotenv()
 
 app = Flask(__name__, static_folder="static", template_folder="templates")
-CORS(app)  # allow cross-origin JS calls from the same host
+CORS(app)
 
 @app.route('/')
 def home():
-    # if you have templates/index.html, Flask will serve it
     try:
         return render_template('index.html')
     except Exception:
-        # fallback simple HTML so you can test without templates
         return """
-        <!doctype html>
-        <html>
-        <head><meta charset="utf-8"><title>Olyph AI</title></head>
-        <body>
-          <h3>Olyph AI Backend</h3>
-          <form id="chatForm">
-            <input id="msg" placeholder="Ask something" style="width:300px"/>
-            <button type="button" onclick="send()">Send</button>
-          </form>
-          <div id="reply"></div>
-          <script>
-            async function send(){
-              const m = document.getElementById('msg').value;
-              const res = await fetch('/ask', {
-                method: 'POST', headers: {'Content-Type':'application/json'},
-                body: JSON.stringify({message: m})
-              });
-              const j = await res.json();
-              document.getElementById('reply').innerText = j.reply || 'No reply';
-            }
-          </script>
-        </body>
-        </html>
+        <!doctype html><html><head><meta charset="utf-8"><title>Olyph AI</title></head>
+        <body><h3>Olyph AI Backend</h3>
+        <p>Open the frontend at / (templates/index.html)</p></body></html>
         """
 
 @app.route('/ask', methods=['POST'])
@@ -48,10 +32,31 @@ def ask():
         response = handle_user_query(user_input)
         return jsonify({'reply': response})
     except Exception as e:
-        # log and return friendly message
         print(f"❌ Error in /ask route: {type(e).__name__}: {e}")
         return jsonify({'reply': "⚠️ Something went wrong on the server. Check logs."})
 
+@app.route('/api/report', methods=['POST'])
+def api_report():
+    """
+    Request body (JSON) - all fields optional because server will fall back to env:
+    {
+      "sheet_id": "<spreadsheetId>",  # optional, if not provided uses REPORT_SHEET_ID from .env
+      "sheet": 0 or "<sheet name>",   # optional, default from REPORT_SHEET_NAME_OR_INDEX or 0
+      "format": "csv" or "xlsx"       # optional, default csv
+    }
+    """
+    try:
+        data = request.get_json(silent=True) or {}
+        sheet_id = data.get("sheet_id") or request.args.get("sheet_id")  # may be None
+        sheet = data.get("sheet", None)
+        fmt = (data.get("format", "csv") or "csv").lower()
+
+        bio, filename, mimetype = generate_report_bytes(sheet_id=sheet_id, sheet=sheet, fmt=fmt)
+        return send_file(bio, as_attachment=True, download_name=filename, mimetype=mimetype)
+    except Exception as e:
+        print(f"❌ /api/report error: {type(e).__name__}: {e}")
+        return jsonify({"error": str(e)}), 500
+
 if __name__ == '__main__':
-    # For local testing. Use production server (gunicorn/uvicorn) in production.
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port, debug=True)

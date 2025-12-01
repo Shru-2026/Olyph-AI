@@ -174,7 +174,6 @@ body {
   font-weight: 500;
 }
 
-
 /* ===== RESPONSIVENESS ===== */
 @media (max-width: 420px) {
   .chat-window {

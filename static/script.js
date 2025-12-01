@@ -1,3 +1,4 @@
+// static/script.js
 document.addEventListener("DOMContentLoaded", () => {
   console.log("✅ Olyph AI script loaded successfully");
 
@@ -21,9 +22,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const SUPPORT_CONTACT_NUMBER = "+91-77700 04323";
   const SUPPORT_CONTACT_LINK = "https://olyphaunt.com/contact-us/";
 
-  // -------------------------
-  // Utility: escape HTML to avoid XSS, except we'll insert safe links later
-  // -------------------------
   function escapeHtml(unsafe) {
     return unsafe
       .replace(/&/g, "&amp;")
@@ -33,23 +31,14 @@ document.addEventListener("DOMContentLoaded", () => {
       .replace(/'/g, "&#039;");
   }
 
-  // -------------------------
-  // addMessage: renders messages and converts URLs into clickable links
-  // -------------------------
   function addMessage(content, sender = "bot") {
     const message = document.createElement("div");
     message.classList.add(sender === "bot" ? "bot-message" : "user-message");
 
-    // Convert content to string
     let text = typeof content === "string" ? content : String(content);
-
-    // Escape HTML to avoid XSS, then convert URLs to links
     const urlRegex = /(https?:\/\/[^\s]+)/g;
-    // First escape
     let escaped = escapeHtml(text);
-    // Then replace escaped URLs with anchor tags (anchors themselves will be safe)
     const html = escaped.replace(urlRegex, (url) => {
-      // url was escaped, so we need to unescape the visible url text for link label
       const visible = escapeHtml(url);
       return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="chat-link">${visible}</a>`;
     });
@@ -68,11 +57,7 @@ document.addEventListener("DOMContentLoaded", () => {
     return validOptions.includes(option);
   }
 
-  // -------------------------
-  // Quick buttons helper (Yes / No)
-  // -------------------------
   function addQuickButtons(id, buttonsConfig) {
-    // don't add duplicate button sets
     if (document.getElementById(`quick-btns-${id}`)) return;
 
     const container = document.createElement("div");
@@ -86,12 +71,9 @@ document.addEventListener("DOMContentLoaded", () => {
       btn.innerText = b.label;
       btn.dataset.value = b.value;
       btn.addEventListener("click", () => {
-        // remove button group
         const el = document.getElementById(`quick-btns-${id}`);
         if (el) el.remove();
-        // simulate user message in chat
         addMessage(b.label, "user");
-        // handle the followup answer
         onSurveyFollowup(b.value);
       });
       container.appendChild(btn);
@@ -100,16 +82,12 @@ document.addEventListener("DOMContentLoaded", () => {
     chatBody.appendChild(container);
     scrollChatToBottom();
 
-    // Auto-remove after lifetime
     setTimeout(() => {
       const el = document.getElementById(`quick-btns-${id}`);
       if (el) el.remove();
     }, SURVEY_BUTTON_LIFETIME_MS);
   }
 
-  // -------------------------
-  // Survey follow-up handler
-  // -------------------------
   function onSurveyFollowup(value) {
     if (surveyFollowupAnswered) return;
     surveyFollowupAnswered = true;
@@ -125,7 +103,6 @@ document.addEventListener("DOMContentLoaded", () => {
       }, 500);
     } else if (value === "no") {
       setTimeout(() => {
-        // include both phone and clickable contact page link
         addMessage(
           `📞 No problem — if you need assistance, reach us at: ${SUPPORT_CONTACT_NUMBER}\n\n` +
             `🌐 You can also contact us here: ${SUPPORT_CONTACT_LINK}`,
@@ -135,9 +112,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // -------------------------
-  // Main flow: selection handling
-  // -------------------------
   function handleSelection(option) {
     if (optionSelected) return;
     if (!sanityCheck(option)) return addMessage("⚠️ Invalid option selected!", "bot");
@@ -145,10 +119,7 @@ document.addEventListener("DOMContentLoaded", () => {
     optionSelected = true;
     selectedMode = option;
 
-    // Hide the buttons
     if (buttonContainer) buttonContainer.style.display = "none";
-
-    // Show the Home button
     if (homeButton) homeButton.style.display = "inline-block";
 
     if (option === "ask") {
@@ -159,12 +130,10 @@ document.addEventListener("DOMContentLoaded", () => {
     } else if (option === "survey") {
       addMessage("Thank you for choosing Survey Agent! Opening the form now...", "bot");
 
-      // Open the Google Form after a short delay
       setTimeout(() => {
         window.open("https://forms.gle/u4pRVf1bAWSbWJA7A", "_blank");
       }, 1000);
 
-      // Reset state and start follow-up timer
       surveyFollowupAnswered = false;
       if (surveyFollowupTimer) {
         clearTimeout(surveyFollowupTimer);
@@ -178,13 +147,49 @@ document.addEventListener("DOMContentLoaded", () => {
         ]);
       }, SURVEY_FOLLOWUP_DELAY_MS);
     } else if (option === "report") {
-      addMessage("Thank you for choosing Report Agent. Connecting to reporting assistant...", "bot");
+      addMessage("Thank you for choosing Report Agent. Requesting report...", "bot");
+
+      setTimeout(async () => {
+        try {
+          // Default format: csv. Change to "xlsx" if you prefer Excel by default.
+          const fmt = "csv";
+          const res = await fetch("/api/report", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ format: fmt })
+          });
+
+          if (!res.ok) {
+            const err = await res.json().catch(()=>({error:res.statusText}));
+            addMessage("Error: " + (err.error || res.statusText), "bot");
+            resetToHome();
+            return;
+          }
+
+          const disposition = res.headers.get("content-disposition") || "";
+          let filename = fmt === "xlsx" ? "report.xlsx" : "report.csv";
+          const match = disposition.match(/filename\*=UTF-8''(.+)|filename="?(.*?)"?(;|$)/);
+          if (match) filename = decodeURIComponent(match[1] || match[2]);
+
+          const blob = await res.blob();
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = filename;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          URL.revokeObjectURL(url);
+          addMessage("Report downloaded: " + filename, "bot");
+        } catch (e) {
+          addMessage("Request failed: " + e.message, "bot");
+        } finally {
+          setTimeout(resetToHome, 800);
+        }
+      }, 600);
     }
   }
 
-  // -------------------------
-  // Conversational agent call (backend)
-  // -------------------------
   async function callConversationalAgent(userMessage) {
     addMessage(userMessage, "user");
 
@@ -203,15 +208,11 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // -------------------------
-  // Sending messages (send button or Enter)
-  // -------------------------
   async function handleSend() {
     const message = userInput.value.trim();
     if (!message) return;
     userInput.value = "";
 
-    // If survey follow-up awaiting and user typed a quick answer, accept "yes"/"no"
     if (selectedMode === "survey" && !surveyFollowupAnswered) {
       const lower = message.toLowerCase();
       if (lower === "yes" || lower === "y" || lower.includes("i filled")) {
@@ -233,15 +234,12 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // -------------------------
-  // Event listeners
-  // -------------------------
   if (sendBtn) sendBtn.addEventListener("click", handleSend);
 
   if (userInput) {
     userInput.addEventListener("keypress", function (event) {
       if (event.key === "Enter" && !event.shiftKey) {
-        event.preventDefault(); // Prevent newline
+        event.preventDefault();
         handleSend();
       }
     });
@@ -261,9 +259,6 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // -------------------------
-  // Reset chat
-  // -------------------------
   function resetChat() {
     if (surveyFollowupTimer) {
       clearTimeout(surveyFollowupTimer);
@@ -279,6 +274,12 @@ document.addEventListener("DOMContentLoaded", () => {
     selectedMode = null;
   }
 
-  // Initialize chat on load
+  function resetToHome() {
+    if (buttonContainer) buttonContainer.style.display = "flex";
+    if (homeButton) homeButton.style.display = "none";
+    optionSelected = false;
+    selectedMode = null;
+  }
+
   resetChat();
 });
