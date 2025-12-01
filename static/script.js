@@ -1,4 +1,4 @@
-// static/script.js (complete, with showHomeButton integration)
+// static/script.js
 document.addEventListener("DOMContentLoaded", () => {
   console.log("✅ Olyph AI script loaded successfully");
 
@@ -112,18 +112,34 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  /* ------------------ UI helpers for home button ------------------ */
+  /* ------------------ UI helpers ------------------ */
 
-  // show Home button and make main buttons visible
-  function showHomeButton() {
+  // Makes main buttons visible and hides home
+  function showMainMenu() {
     if (buttonContainer) buttonContainer.style.display = "flex";
-    if (homeButton) homeButton.style.display = "inline-block";
+    if (homeButton) homeButton.style.display = "none";
     optionSelected = false;
     selectedMode = null;
   }
 
-  // resetToHome cancels an operation and hides the Home button (used for cancel flows)
-  function resetToHome() {
+  // Hides main menu; leaves home button visible (used after download success)
+  function hideMainMenuKeepHome() {
+    if (buttonContainer) buttonContainer.style.display = "none";
+    if (homeButton) homeButton.style.display = "inline-block";
+    optionSelected = true; // prevent reactivation until user uses home
+    selectedMode = null;
+  }
+
+  // Reset chat to greeting and show main menu (use when clicking Home)
+  function resetChat() {
+    if (surveyFollowupTimer) {
+      clearTimeout(surveyFollowupTimer);
+      surveyFollowupTimer = null;
+    }
+    surveyFollowupAnswered = false;
+
+    if (chatBody) chatBody.innerHTML = "";
+    addMessage("👋 Greetings, this is OlyphAI. How can I help you?");
     if (buttonContainer) buttonContainer.style.display = "flex";
     if (homeButton) homeButton.style.display = "none";
     optionSelected = false;
@@ -177,7 +193,7 @@ document.addEventListener("DOMContentLoaded", () => {
     cancelBtn.addEventListener("click", () => {
       closeModal();
       addMessage("Report cancelled.", "bot");
-      resetToHome();
+      showMainMenu();
     });
 
     passwordInput.addEventListener("keypress", (e) => {
@@ -227,10 +243,13 @@ document.addEventListener("DOMContentLoaded", () => {
         URL.revokeObjectURL(url);
 
         closeModal();
-        addMessage("Report downloaded: " + filename, "bot");
 
-        // show home button and main options again (keeps home visible)
-        showHomeButton();
+        // final message instead of showing menu again
+        addMessage("Thank you for reaching to us, the csv file is downloaded in your device", "bot");
+
+        // hide main buttons but KEEP the Home button visible
+        hideMainMenuKeepHome();
+
       } catch (err) {
         errorDiv.style.display = "block";
         errorDiv.innerText = "Request failed: " + (err.message || err);
@@ -241,7 +260,7 @@ document.addEventListener("DOMContentLoaded", () => {
     return overlay;
   }
 
-  /* ------------------ Main flow (unchanged) ------------------ */
+  /* ------------------ Main flow ------------------ */
   function handleSelection(option) {
     if (optionSelected) return;
     if (!sanityCheck(option)) return addMessage("⚠️ Invalid option selected!", "bot");
@@ -284,7 +303,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  /* ------------------ Conversational Agent (unchanged) ------------------ */
+  /* ------------------ Conversational Agent ------------------ */
   async function callConversationalAgent(userMessage) {
     addMessage(userMessage, "user");
 
@@ -303,7 +322,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  /* ------------------ Sending messages (unchanged) ------------------ */
+  /* ------------------ Sending messages ------------------ */
   async function handleSend() {
     const message = userInput.value.trim();
     if (!message) return;
@@ -330,7 +349,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  /* ------------------ Event listeners (unchanged) ------------------ */
+  /* ------------------ Event listeners ------------------ */
   if (sendBtn) sendBtn.addEventListener("click", handleSend);
 
   if (userInput) {
@@ -356,39 +375,6 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  function resetChat() {
-    if (surveyFollowupTimer) {
-      clearTimeout(surveyFollowupTimer);
-      surveyFollowupTimer = null;
-    }
-    surveyFollowupAnswered = false;
-
-    if (chatBody) chatBody.innerHTML = "";
-    addMessage("👋 Greetings, this is OlyphAI. How can I help you?");
-    if (buttonContainer) buttonContainer.style.display = "flex";
-    if (homeButton) homeButton.style.display = "none";
-    optionSelected = false;
-    selectedMode = null;
-  }
-
-  function resetToHome() {
-    if (buttonContainer) buttonContainer.style.display = "flex";
-    if (homeButton) homeButton.style.display = "none";
-    optionSelected = false;
-    selectedMode = null;
-  }
-
-  function resetToHomeVisible() {
-    // deprecated helper kept for compatibility; prefer showHomeButton()
-    showHomeButton();
-  }
-
-  function showHomeButton() {
-    if (buttonContainer) buttonContainer.style.display = "flex";
-    if (homeButton) homeButton.style.display = "inline-block";
-    optionSelected = false;
-    selectedMode = null;
-  }
-
+  // Initialize chat on load
   resetChat();
 });
