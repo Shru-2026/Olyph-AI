@@ -5,7 +5,9 @@ from flask_cors import CORS
 from dotenv import load_dotenv
 
 # Import agent functions and auth verify
-from agent import handle_user_query, generate_report_bytes
+from chat_agent import handle_user_query
+from flask import send_file
+from report_agent import generate_report_bytes
 from auth.auth import verify_user
 
 load_dotenv()
@@ -88,6 +90,15 @@ def api_report():
         print("❌ /api/report error:", type(e).__name__, e)
         return jsonify({"error": f"Internal error: {type(e).__name__}: {str(e)}"}), 500
 
+@app.route("/download-report", methods=["GET"])
+def download_report():
+    bio, filename, mimetype = generate_report_bytes(fmt="csv")
+    return send_file(
+        bio,
+        as_attachment=True,
+        download_name=filename,
+        mimetype=mimetype
+    )
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
