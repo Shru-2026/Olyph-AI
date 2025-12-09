@@ -15,10 +15,9 @@ document.addEventListener("DOMContentLoaded", () => {
   let surveyFollowupTimer = null;
   let surveyFollowupAnswered = false;
   const SURVEY_FOLLOWUP_ID = "survey-fill-check";
-  const SURVEY_FOLLOWUP_DELAY_MS = 2 * 60 * 1000; // 2 minutes
-  const SURVEY_BUTTON_LIFETIME_MS = 5 * 60 * 1000; // 5 minutes lifetime for buttons
+  const SURVEY_FOLLOWUP_DELAY_MS = 1 * 60 * 1000; // 1 minutes
+  const SURVEY_BUTTON_LIFETIME_MS = 2 * 60 * 1000; // 2 minutes lifetime
 
-  // Replace this with your real support number and contact page
   const SUPPORT_CONTACT_NUMBER = "+91-77700 04323";
   const SUPPORT_CONTACT_LINK = "https://olyphaunt.com/contact-us/";
 
@@ -53,8 +52,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function sanityCheck(option) {
-    const validOptions = ["ask", "survey", "report"];
-    return validOptions.includes(option);
+    return ["ask", "survey", "report"].includes(option);
   }
 
   function addQuickButtons(id, buttonsConfig) {
@@ -88,7 +86,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }, SURVEY_BUTTON_LIFETIME_MS);
   }
 
-  function onSurveyFollowup(value) {
+  async function onSurveyFollowup(value) {
     if (surveyFollowupAnswered) return;
     surveyFollowupAnswered = true;
 
@@ -98,9 +96,24 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     if (value === "yes") {
-      setTimeout(() => {
-        addMessage("✅ Thank you for filling the form! We appreciate your time.", "bot");
-      }, 500);
+      addMessage("⏳ Processing your survey responses...", "bot");
+
+      try {
+        const res = await fetch("/api/survey/process");
+        const data = await res.json().catch(() => ({}));
+
+        console.log("[Survey] Backend response:", data);
+
+        if (res.ok && data.status === "ok") {
+          addMessage("🎯 Great! Your survey has been successfully scored.", "bot");
+          addMessage("📊 You may download your report anytime using the Report Agent.", "bot");
+        } else {
+          addMessage("⚠️ Your form is submitted, but scoring did not complete yet. Please try again later.", "bot");
+        }
+      } catch (err) {
+        console.error("[Survey] Error:", err);
+        addMessage("❌ Something went wrong while scoring your survey.", "bot");
+      }
     } else if (value === "no") {
       setTimeout(() => {
         addMessage(
@@ -112,25 +125,20 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  /* ------------------ UI helpers ------------------ */
-
-  // Makes main buttons visible and hides home
   function showMainMenu() {
-    if (buttonContainer) buttonContainer.style.display = "flex";
-    if (homeButton) homeButton.style.display = "none";
+    buttonContainer.style.display = "flex";
+    homeButton.style.display = "none";
     optionSelected = false;
     selectedMode = null;
   }
 
-  // Hides main menu; leaves home button visible (used after download success)
   function hideMainMenuKeepHome() {
-    if (buttonContainer) buttonContainer.style.display = "none";
-    if (homeButton) homeButton.style.display = "inline-block";
-    optionSelected = true; // prevent reactivation until user uses home
+    buttonContainer.style.display = "none";
+    homeButton.style.display = "inline-block";
+    optionSelected = true;
     selectedMode = null;
   }
 
-  // Reset chat to greeting and show main menu (use when clicking Home)
   function resetChat() {
     if (surveyFollowupTimer) {
       clearTimeout(surveyFollowupTimer);
@@ -138,16 +146,15 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     surveyFollowupAnswered = false;
 
-    if (chatBody) chatBody.innerHTML = "";
+    chatBody.innerHTML = "";
     addMessage("👋 Greetings, this is OlyphAI. How can I help you?");
-    if (buttonContainer) buttonContainer.style.display = "flex";
-    if (homeButton) homeButton.style.display = "none";
+    buttonContainer.style.display = "flex";
+    homeButton.style.display = "none";
     optionSelected = false;
     selectedMode = null;
   }
 
-  /* ------------------ Credential Modal ------------------ */
-  function createCredentialModal(defaultFormat = "csv") {
+ function createCredentialModal(defaultFormat = "csv") {
     if (document.getElementById("cred-modal")) return null;
 
     const overlay = document.createElement("div");
@@ -260,7 +267,6 @@ document.addEventListener("DOMContentLoaded", () => {
     return overlay;
   }
 
-  /* ------------------ Main flow ------------------ */
   function handleSelection(option) {
     if (optionSelected) return;
     if (!sanityCheck(option)) return addMessage("⚠️ Invalid option selected!", "bot");
@@ -268,8 +274,8 @@ document.addEventListener("DOMContentLoaded", () => {
     optionSelected = true;
     selectedMode = option;
 
-    if (buttonContainer) buttonContainer.style.display = "none";
-    if (homeButton) homeButton.style.display = "inline-block";
+    buttonContainer.style.display = "none";
+    homeButton.style.display = "inline-block";
 
     if (option === "ask") {
       addMessage("Thank you for choosing Ask me anything. Connecting you with Olyph AI...", "bot");
@@ -281,12 +287,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
       setTimeout(() => {
         window.open("https://forms.gle/u4pRVf1bAWSbWJA7A", "_blank");
-      }, 1000);
+      }, 800);
 
       surveyFollowupAnswered = false;
-      if (surveyFollowupTimer) {
-        clearTimeout(surveyFollowupTimer);
-      }
+      if (surveyFollowupTimer) clearTimeout(surveyFollowupTimer);
+
       surveyFollowupTimer = setTimeout(() => {
         if (surveyFollowupAnswered) return;
         addMessage("Did you fill the form we just opened? (Please choose an option below)", "bot");
@@ -303,26 +308,21 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  /* ------------------ Conversational Agent ------------------ */
   async function callConversationalAgent(userMessage) {
     addMessage(userMessage, "user");
-
     try {
-      const response = await fetch("/ask", {
+      const res = await fetch("/ask", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: userMessage }),
       });
-
-      const data = await response.json();
+      const data = await res.json();
       addMessage(data.reply, "bot");
-    } catch (error) {
+    } catch {
       addMessage("⚠️ Could not connect to Olyph AI server.", "bot");
-      console.error(error);
     }
   }
 
-  /* ------------------ Sending messages ------------------ */
   async function handleSend() {
     const message = userInput.value.trim();
     if (!message) return;
@@ -330,51 +330,37 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (selectedMode === "survey" && !surveyFollowupAnswered) {
       const lower = message.toLowerCase();
-      if (lower === "yes" || lower === "y" || lower.includes("i filled")) {
+      if (lower.includes("yes")) {
         addMessage("Yes", "user");
-        onSurveyFollowup("yes");
-        return;
-      } else if (lower === "no" || lower === "n" || lower.includes("couldn't") || lower.includes("could not")) {
+        return onSurveyFollowup("yes");
+      }
+      if (lower.includes("no")) {
         addMessage("No", "user");
-        onSurveyFollowup("no");
-        return;
+        return onSurveyFollowup("no");
       }
     }
 
     if (selectedMode === "ask") {
-      await callConversationalAgent(message);
-    } else {
-      addMessage(message, "user");
-      setTimeout(() => addMessage("We’ll get back to you soon.", "bot"), 500);
+      return callConversationalAgent(message);
     }
+
+    addMessage(message, "user");
+    setTimeout(() => addMessage("We’ll get back to you soon.", "bot"), 500);
   }
 
-  /* ------------------ Event listeners ------------------ */
-  if (sendBtn) sendBtn.addEventListener("click", handleSend);
+  sendBtn.addEventListener("click", handleSend);
+  userInput.addEventListener("keypress", (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+  });
 
-  if (userInput) {
-    userInput.addEventListener("keypress", function (event) {
-      if (event.key === "Enter" && !event.shiftKey) {
-        event.preventDefault();
-        handleSend();
-      }
-    });
-  }
+  document.getElementById("askBtn")?.addEventListener("click", () => handleSelection("ask"));
+  document.getElementById("surveyBtn")?.addEventListener("click", () => handleSelection("survey"));
+  document.getElementById("reportBtn")?.addEventListener("click", () => handleSelection("report"));
 
-  const askBtn = document.getElementById("askBtn");
-  const surveyBtn = document.getElementById("surveyBtn");
-  const reportBtn = document.getElementById("reportBtn");
+  homeButton.addEventListener("click", resetChat);
 
-  if (askBtn) askBtn.addEventListener("click", () => handleSelection("ask"));
-  if (surveyBtn) surveyBtn.addEventListener("click", () => handleSelection("survey"));
-  if (reportBtn) reportBtn.addEventListener("click", () => handleSelection("report"));
-
-  if (homeButton) {
-    homeButton.addEventListener("click", () => {
-      resetChat();
-    });
-  }
-
-  // Initialize chat on load
   resetChat();
 });

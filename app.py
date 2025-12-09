@@ -9,6 +9,8 @@ from chat_agent import handle_user_query
 from flask import send_file
 from report_agent import generate_report_bytes
 from auth.auth import verify_user
+from survey_agent import process_unscored_responses
+
 
 load_dotenv()
 
@@ -99,6 +101,31 @@ def download_report():
         download_name=filename,
         mimetype=mimetype
     )
+
+@app.route('/api/survey/process', methods=['POST', 'GET'])
+def api_survey_process():
+    """
+    Trigger survey scoring:
+    - Reads new Google Form responses from the sheet
+    - Scores ANS Q1–Q3 with Azure
+    - Writes Score Q1–Q3 and Total back into the sheet
+    """
+    try:
+        msg = process_unscored_responses()
+        return jsonify({"status": "ok", "message": msg})
+    except FileNotFoundError as e:
+            # service account JSON not present
+            print("❌ /api/survey/process FileNotFoundError:", e)
+            return jsonify({
+                "status": "error",
+                "message": "Service account JSON not found. Check SERVICE_ACCOUNT_FILE path."
+            }), 500
+    except Exception as e:
+        print("❌ /api/survey/process error:", type(e).__name__, e)
+        return jsonify({
+            "status": "error",
+            "message": f"Internal error: {type(e).__name__}: {str(e)}"
+        }), 500
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
