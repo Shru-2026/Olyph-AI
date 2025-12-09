@@ -24,7 +24,7 @@ load_dotenv(dotenv_path="./.env")
 nltk.download("punkt", quiet=True)
 nltk.download("stopwords", quiet=True)
 
-threshold = 0.4
+threshold = 0.7
 
 # ---------- Azure/OpenAI config ----------
 AZURE_OPENAI_KEY = os.getenv("AZURE_OPENAI_KEY")
