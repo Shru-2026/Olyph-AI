@@ -14,7 +14,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 SERVICE_ACCOUNT_FILE = os.path.join(BASE_DIR, "creds", "service_account.json")
 
 # TODO: put your actual spreadsheet ID here (from the sheet URL)
-SPREADSHEET_ID = "1KPfFT8UZ3nJNstgivfbiRf3vjLpILsChYSrJ0tD8L9c"
+SPREADSHEET_ID = "17bCNu8teY-KM5154YVA1_90xLKBlMrLAKkjy0AVJK1w"
 SHEET_NAME = "Form Responses 1"   # change if your tab name is different
 
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
