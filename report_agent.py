@@ -115,9 +115,15 @@ def fetch_sheet_as_dataframe(
     else:
         worksheet = spreadsheet.worksheet(sheet_name_or_index)
 
-    records = worksheet.get_all_records(value_render_option=value_render_option)
-    df = pd.DataFrame(records)
+    values = worksheet.get_all_values()
+    if not values:
+        return pd.DataFrame()
+
+    header = values[0]
+    rows = values[1:]
+    df = pd.DataFrame(rows, columns=header)
     return df
+
 
 def dataframe_to_csv_bytes(df: pd.DataFrame):
     buf = io.BytesIO()
