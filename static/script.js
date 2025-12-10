@@ -105,14 +105,13 @@ document.addEventListener("DOMContentLoaded", () => {
         console.log("[Survey] Backend response:", data);
 
         if (res.ok && data.status === "ok") {
-          addMessage("🎯 Great! Your survey has been successfully scored.", "bot");
-          addMessage("📊 You may download your report anytime using the Report Agent.", "bot");
+          addMessage("🎯 Great! Your survey has been successfully submitted.", "bot");
         } else {
-          addMessage("⚠️ Your form is submitted, but scoring did not complete yet. Please try again later.", "bot");
+          addMessage("⚠️ There is some error during submitting your form. Please try again later.", "bot");
         }
       } catch (err) {
         console.error("[Survey] Error:", err);
-        addMessage("❌ Something went wrong while scoring your survey.", "bot");
+        addMessage("❌ Something went wrong.", "bot");
       }
     } else if (value === "no") {
       setTimeout(() => {
