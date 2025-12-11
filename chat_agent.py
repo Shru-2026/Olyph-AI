@@ -24,7 +24,7 @@ load_dotenv(dotenv_path="./.env")
 nltk.download("punkt", quiet=True)
 nltk.download("stopwords", quiet=True)
 
-threshold = 0.7
+threshold = 0.6
 
 # ---------- Azure/OpenAI config ----------
 AZURE_OPENAI_KEY = os.getenv("AZURE_OPENAI_KEY")
@@ -170,7 +170,7 @@ class OlyphauntChatbot:
                 model=AZURE_DEPLOYMENT_NAME,
                 messages=messages,
                 temperature=0.2,
-                max_tokens=512,
+                max_tokens=256,
             )
             print("RAW RESPONSE:", resp)
             if hasattr(resp, "choices") and len(resp.choices) > 0:
